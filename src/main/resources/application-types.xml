@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="metadata" format="java">
+      <types:shape format="raml"><![CDATA[#%RAML 1.0 DataType
+type: string]]></types:shape>
+    </types:type>
+    <types:type name="samplemetadata" format="json">
+      <types:shape format="weave" example="sample.json"><![CDATA[%dw 2.0
+
+type samplemetadata = {|
+  id: Number {"typeId": "int"}, 
+  name: String, 
+  age: Number {"typeId": "int"}, 
+  email: String, 
+  isActive: Boolean, 
+  skills: Array<String>, 
+  address: {|
+    street: String, 
+    city: String, 
+    zipCode: String
+  |}
+|} {"example": "{\\\"id\\\":101,\\\"name\\\":\\\"John Doe\\\",\\\"age\\\":28,\\\"email\\\":\\\"john.doe@example.com\\\",\\\"isActive\\\":true,\\\"skills\\\":[\\\"Java\\\",\\\"Python\\\",\\\"SQL\\\"],\\\"address\\\":{\\\"street\\\":\\\"123 Main St\\\",\\\"city\\\":\\\"New York\\\",\\\"zipCode\\\":\\\"10001\\\"}}"}
+
+]]></types:shape>
+    </types:type>
+    <types:type name="jj" format="java">
+      <types:shape format="raml"><![CDATA[#%RAML 1.0 DataType
+type: string]]></types:shape>
+    </types:type>
+    <types:type name="meta" format="java">
+      <types:shape format="raml"><![CDATA[#%RAML 1.0 DataType
+type: string]]></types:shape>
+    </types:type>
+  </types:catalog>
+  <types:enrichment select="#231e97b8-69b6-4ee5-ab51-fc371bbedda5">
+    <types:processor-declaration>
+      <types:output-event>
+        <types:message>
+          <types:payload type="samplemetadata"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+</types:mule>
