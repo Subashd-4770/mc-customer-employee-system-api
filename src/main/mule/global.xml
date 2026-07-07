@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:snowflake="http://www.mulesoft.org/schema/mule/snowflake"
+	xmlns:netsuite="http://www.mulesoft.org/schema/mule/netsuite"
+	xmlns:ftp="http://www.mulesoft.org/schema/mule/ftp" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/ftp http://www.mulesoft.org/schema/mule/ftp/current/mule-ftp.xsd
+http://www.mulesoft.org/schema/mule/netsuite http://www.mulesoft.org/schema/mule/netsuite/current/mule-netsuite.xsd
+http://www.mulesoft.org/schema/mule/snowflake http://www.mulesoft.org/schema/mule/snowflake/current/mule-snowflake.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP_Listener_config" doc:id="282f87d1-3f8d-4c8f-86a9-3fc874cf7afb">
+		<http:listener-connection host="${http.host}" port="${http.port}" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database_Config" doc:id="32b96b46-6c71-49d7-a54d-b86420403dc0" >
+		<db:generic-connection url="${db.url}" driverClassName="${db.driver-class-name}" user="${db.user}" password="${secure::db.password}" useXaTransactions="true">
+			<reconnection >
+				<reconnect frequency="120000" count="5" />
+			</reconnection>
+		</db:generic-connection>
+	</db:config>
+	<configuration doc:name="Configuration" doc:id="d9ec02a0-bbb3-484c-a8e6-940ebd511891" defaultErrorHandler-ref="allErrorHandlerr"/>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="de934198-2749-45ad-b731-4e309f7f40b6" >
+		<salesforce:basic-connection username="${sf.username}" password="${secure::sf.password}" securityToken="${sf.security-token}" url="${sf.authorization-url}" />
+	</salesforce:sfdc-config>
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="e49440de-33a9-4703-ad26-45f80a229e7e" >
+		<sftp:connection host="localhost" username="tester" password="password" workingDir="/mule/input">
+		</sftp:connection>
+	</sftp:config>
+	<snowflake:snowflake-config name="Snowflake_Config" doc:name="Snowflake Config" doc:id="9d526171-fe87-4dea-813f-148b3f2c62a6" >
+		<snowflake:snowflake-connection accountName="${snowflake.account-name}" warehouse="${snowflake.warehouse}" database="${snowflake.database}" schema="${snowflake.schema}" user="${snowflake.user}" password="${secure::snowflake.password}" role="${snowflake.role}" />
+	</snowflake:snowflake-config>
+	<http:request-config name="HTTP_Request_config" doc:name="HTTP_Request_config" doc:id="bbde4da7-50ba-4d03-85b1-96a19993096c" >
+		<http:request-connection host="${request.host}" port="${request.port}" />
+	</http:request-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="b3d4a30b-f583-48ab-afbf-3edbf2ecc522">
+		<file:connection workingDir="C:\Users\Subash\File" />
+	</file:config>
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="0784f343-2803-4730-80f3-bacf7bdb28e3" file="properties/dev-api-properties.yaml" key="good@123" >
+		<secure-properties:encrypt algorithm="Blowfish" />
+	</secure-properties:config>
+	<salesforce:sfdc-config name="Salesforce_Config1" doc:name="Salesforce Config" doc:id="89c5b285-5cb3-406f-8e60-bcf37be0e3f6" >
+		<salesforce:basic-connection username="subash.e55542393d59@agentforce.com" password="Subash@4770" securityToken="d9nzrc0QD2R8jkiLYBnTK1riD" url="https://login.salesforce.com/services/Soap/u/64.0"/>
+	</salesforce:sfdc-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="22eef765-546a-4b52-b829-3eaf2285585e" file="properties\dev-api-properties.yaml" />
+</mule>
