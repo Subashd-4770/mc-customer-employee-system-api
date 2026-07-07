@@ -1,0 +1,973 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:tracing="http://www.mulesoft.org/schema/mule/tracing" xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:snowflake="http://www.mulesoft.org/schema/mule/snowflake" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:ftp="http://www.mulesoft.org/schema/mule/ftp" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation=" http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ftp http://www.mulesoft.org/schema/mule/ftp/current/mule-ftp.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/snowflake http://www.mulesoft.org/schema/mule/snowflake/current/mule-snowflake.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/tracing http://www.mulesoft.org/schema/mule/tracing/current/mule-tracing.xsd">
+    <apikit:config name="mc-customeronboarding-system-api-config" api="resource::02c53825-8f52-4597-8f08-3e9e00a89276:customer-onboard:1.0.3:raml:zip:mc-customeronboarding-system-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+	<os:config name="ObjectStore_Config" doc:name="ObjectStore Config" doc:id="6e9c6d10-b648-44d9-a953-488bebc86eb6" >
+		<os:connection >
+			<reconnection failsDeployment="true" >
+				<reconnect />
+			</reconnection>
+		</os:connection>
+	</os:config>
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="43c899aa-0055-495c-b883-7757d7df681d" entryTtl="45" entryTtlUnit="MINUTES" expirationIntervalUnit="HOURS" config-ref="ObjectStore_Config" />
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="6fb9d80d-3ca3-455f-b478-0bc26c7de4e8" objectStore="Object_store" />
+	<flow name="mc-customeronboarding-system-api-main">
+        <http:listener config-ref="HTTP_Listener_config" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="mc-customeronboarding-system-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+	<flow name="mc-customeronboarding-system-api-console">
+        <http:listener config-ref="HTTP_Listener_config" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="mc-customeronboarding-system-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="put:\customers\(customerId):mc-customeronboarding-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="1674441c-c305-43ef-ab6b-db6845b435da" message="#[&quot;Data Updating Process&quot;]" />
+        <ee:transform doc:name="Transform Message" doc:id="debb7895-c925-4bf7-967e-352a0739aba6">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="customer"><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <db:update doc:name="Update" doc:id="454cc136-5b4e-4267-bedd-b29dcaadba05" config-ref="Database_Config">
+            <db:sql><![CDATA[UPDATE customer SET  "customerId" = :customerId, "firstName" = :firstName,"lastName" = :lastName,email= :email,phone = :phone, gender= :gender,city = :city WHERE "customerId" = :customerId]]></db:sql>
+            <db:input-parameters><![CDATA[#[{
+        customerId : vars.customer.customerId,
+        firstName : vars.customer.firstName,
+        lastName   : vars.customer.lastName,
+        email : vars.customer.email,
+        phone : vars.customer.phone,
+        gender : vars.customer.gender,
+        city : vars.customer.city
+}]]]></db:input-parameters>
+        </db:update>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: vars.customer.customerId ++ " Updated successfully"
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="customerId"><![CDATA[attributes.uriParams.'customerId']]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="95795856-9fc2-4f34-a680-c8609b18d40c" message="#[payload]" />
+    </flow>
+    <flow name="delete:\customers\(customerId):mc-customeronboarding-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="20d55c28-cc46-43f2-bcd9-ff07aa1ff952" message="#[&quot;Started Deleting Process&quot;]" />
+		<db:delete doc:name="Delete" doc:id="eb4eb7dc-ca41-4942-8b28-a11d09954802" config-ref="Database_Config" >
+            <db:sql ><![CDATA[DELETE FROM customer
+WHERE "customerId" = :customerId]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	customerId: attributes.uriParams.customerId
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message">
+            <ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload > 0)
+{
+    success: true,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: "Customer deleted successfully"
+}
+else
+{
+    success: false,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: "Customer not found"
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+                <ee:set-variable variableName="custid"><![CDATA[%dw 2.0
+output application/json
+---
+if(payload > 0) 200 else 404]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<logger level="INFO" message="#[write(payload,'application/json')]"/>
+    </flow>
+    <flow name="get:\customers:mc-customeronboarding-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="6adc0071-01c0-43f3-8fe3-9c4f68f55c53" message="GET Customers API Invoked" />
+        <db:select doc:name="Select" doc:id="8c09feff-a471-490e-a3d8-68cff333c5f6" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT * FROM customer]]></db:sql>
+        </db:select>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: "Customers Fetched successfully",
+    data: payload
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="c830f6b4-a157-430d-8bdf-92fced0a2ed9" message="#[payload]" />
+    </flow>
+    <flow name="get:\customers\(customerId):mc-customeronboarding-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="2c0c6879-7b4f-46c6-9e71-fb2091125494" message="#[&quot;GET by customer ID&quot;]" />
+        <ee:transform doc:name="Transform Message" doc:id="b3f50224-93a9-480d-8e44-98bfcb5b9724">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="customer"><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <db:select doc:name="Select" doc:id="757462a8-ee91-47b3-bdc2-a963582f913d" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT * FROM customer
+WHERE "customerId" = :customerId;]]></db:sql>
+            <db:input-parameters><![CDATA[#[{
+  customerId : attributes.uriParams.customerId
+}]]]></db:input-parameters>
+        </db:select>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message:" Customer Retrieved successfully",
+    data: payload[0]
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="customerId"><![CDATA[payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="787855b2-cabb-4096-8f76-1e0461b6c17f" message="#[payload]" />
+    </flow>
+	<flow name="post:\customers:application\json:mc-customeronboarding-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="768b46e5-9177-40d3-a507-48ae8e1ee4b0" message="#[&quot;Started SAVE customer&quot;]" />
+		<validation:is-email doc:name="Is email" doc:id="c88e4cb6-ee4c-4fda-8283-9955ef85ddc9" email="#[payload.email]" message="#[&quot;Invalid Email Id.&quot;]" />
+		<validation:is-number numberType="LONG" doc:name="Is number" doc:id="a2d33c15-a584-4de8-8d4b-90f830140059" value="#[payload.phone]" maxValue="9999999999" message="#[&quot;Phone Number Length is Invalid&quot;]" minValue="6000000000" />
+		<ee:transform doc:name="Transform Message" doc:id="870f5be8-5dee-4e1a-9241-50b46195f35a">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+var myData = {
+	Hello : "World"
+}
+output application/json
+---
+myData]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="customer"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <db:insert doc:name="Insert" doc:id="1bb2fe54-e19a-428a-8628-37d65b132f1e" config-ref="Database_Config">
+            <db:sql><![CDATA[INSERT INTO customer
+(
+    "customerId",
+    "firstName",
+    "lastName",
+    email,
+    phone,
+    gender,
+    city,
+    state,
+    country
+)
+VALUES
+(
+    :customerId,
+    :firstName,
+    :lastName,
+    :email,
+    :phone,
+    :gender,
+    :city,
+    :state,
+    :country
+)]]></db:sql>
+            <db:input-parameters><![CDATA[#[{
+        customerId : vars.customer.customerId,
+        firstName  : vars.customer.firstName,
+        lastName   : vars.customer.lastName,
+        email      : vars.customer.email,
+        phone      : vars.customer.phone,
+        gender     : vars.customer.gender,
+        city       : vars.customer.city,
+        state      : vars.customer.state,
+        country    : vars.customer.country
+}]]]></db:input-parameters>
+        </db:insert>
+        <ee:transform doc:name="Transform Message" doc:id="2e1f4a8d-9aff-4ce4-a328-853888e66618">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: vars.customer.customerId ++ " created successfully"
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="vars"><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="be6a8a71-77fe-44c1-95f7-31069de31e1b" message="#[payload]" />
+        
+        <error-handler>
+ 
+        <on-error-continue type="DB:QUERY_EXECUTION">
+ 
+    <ee:transform doc:name="Transform Message">
+        <ee:message>
+            <ee:set-payload><![CDATA[
+%dw 2.0
+output application/json
+---
+{
+    success: false,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: "Customer ID already exists"
+}
+            ]]></ee:set-payload>
+        </ee:message>
+ 
+        <ee:variables>
+            <ee:set-variable variableName="httpStatus"><![CDATA[409]]></ee:set-variable>
+        </ee:variables>
+ 
+    </ee:transform>
+ 
+</on-error-continue>
+ 
+        <on-error-continue type="VALIDATION:*">
+ 
+            <ee:transform doc:name="Validation Error">
+                <ee:message>
+                    <ee:set-payload><![CDATA[
+%dw 2.0
+output application/json
+---
+{
+    success: false,
+    api: "mc-customeronboarding-system-api",
+    timestamp: now(),
+    message: error.description
+}
+                    ]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+ 
+        </on-error-continue>
+ 
+    </error-handler>
+    </flow>
+	<error-handler name="allErrorHandlerr" doc:id="cb3ff23c-a7d9-46f3-82e8-587c0068bd64">
+        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="a400f3ee-0277-4270-ab45-10c8891a45a0" type="ANY">
+            <set-payload value="#[error.description]" doc:name="Set Payload" doc:id="502221ce-a740-4c2b-ba96-15919b0a3222" />
+        </on-error-continue>
+    </error-handler>
+	<flow name="mc-customeronboarding-system-apiFlow1" doc:id="a63c63f0-c668-4c62-8def-2d0ddec574be">
+		<http:listener doc:name="Listener" doc:id="d0279f41-8551-4234-b926-08f42d666574" config-ref="HTTP_Listener_config" path="employee" />
+		<logger level="INFO" doc:name="Logger" doc:id="733373f4-69ae-447b-90c1-c0380c680554" message='#["Query Operation Started"]' />
+		<tracing:with-correlation-id doc:name="With CorrelationID" doc:id="866610bb-f744-4dd5-96bb-c6009378ba5d" correlationId='#[correlationId ++ " - EXAMPLE"]'>
+			<logger level="WARN" doc:name="Logger" doc:id="dd429a2b-291f-409f-a162-fc72ea166446" message='#["Message"]'/>
+		</tracing:with-correlation-id>
+		<salesforce:query doc:name="Query" doc:id="5b302f1d-0639-4637-903e-f5bfb05a6c33" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[SELECT Id,
+	   Employee_Id__c,
+       Employee_Name__c,
+       Phone__c,
+       Email__c,
+       Department__c,
+       Age__c,
+       Address__c
+FROM Employee__c]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="e78b9375-4261-403b-a35e-98cdce5b8e66">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="53b5616e-e556-4a9b-8299-1d40d5e78a55" message="#[payload]" />
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow2" doc:id="81624f9a-5848-41c1-9e39-159cea1dd334">
+		<http:listener doc:name="Listener" doc:id="9f3529ee-8fbc-419c-b93f-4ef1444ccbf7" config-ref="HTTP_Listener_config" path="deleteEmployee" />
+		<logger level="INFO" doc:name="Logger" doc:id="8ea1ed51-56e5-42fa-9083-1380d3cc0084" message='#["delete Started"]' />
+		<ee:transform doc:name="Transform Message" doc:id="80ced1c4-6b52-4269-84a7-614ba95e74e3">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+["a00fj00001WtC0qAAF"]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:delete doc:name="Delete" doc:id="6c2b9928-8366-45f0-8877-417439c22884" config-ref="Salesforce_Config">
+		</salesforce:delete>
+		<logger level="INFO" doc:name="Logger" doc:id="c5d90b43-70b4-43f0-9513-2fa3d9128a3b" message="#[payload]" />
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow3" doc:id="68ccf442-7a10-4a9e-a80e-dee324da13f9">
+		<http:listener doc:name="Listener" doc:id="f742e1ec-7019-4ff7-a5ed-169dc7404766" config-ref="HTTP_Listener_config" path="read" />
+		<logger level="INFO" doc:name="Logger" doc:id="44c3628b-ad8f-4610-b1c1-c3f6a66b463c" message='#["Read File"]' />
+		<file:read doc:name="Read" doc:id="48bc8c7f-9c77-4bcf-9b73-90854d9d8598" path="C:\Users\Subash\AnypointStudio\studio-workspace\customeronboarding\src\main\mule\mc-customeronboarding-system-api.xml" config-ref="File_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="a9f73bd0-cb67-485e-ba4b-6376c699caf9" message="#[payload]" />
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow4" doc:id="dffd929e-dc73-4daa-8521-db4e86a18bac">
+		<http:listener doc:name="Listener" doc:id="22e494ae-ed42-4d58-8f78-edc8a34d2b24" config-ref="HTTP_Listener_config" path="copy" />
+		<file:copy doc:name="Copy" doc:id="8aef205c-4fae-4b91-b53d-be5578c96ede" sourcePath="C:\Users\Subash\File\success\New" targetPath="C:\Users\Subash\File" />
+		<logger level="INFO" doc:name="Logger" doc:id="99f39b8f-4012-468d-a17c-ef134ad78460" message="#[payload]" />
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow5" doc:id="3bc7b691-b1b9-4cc9-9505-e103ccbed0db">
+		<http:listener doc:name="Listener" doc:id="2b7b79a4-865e-4402-9c11-2528d55abf46" config-ref="HTTP_Listener_config" path="delete" />
+		<file:delete doc:name="Delete" doc:id="45d14c59-0d49-4dc1-9a5b-0cedc302a5bb" path="C:\Users\Subash\File\success\New\" />
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow" doc:id="cfe8ef94-12b2-4a04-a2e2-84953dff7e36">
+		<http:listener doc:name="Listener" doc:id="8b4d8f97-8489-4a3f-857e-f5c2cd393fe8" config-ref="HTTP_Listener_config" path="salesforce"/>
+		<logger level="INFO" doc:name="Logger" doc:id="381f7268-b3e6-4fd8-9d65-d598542a80e8" message='#["Salesforce Connection Started"]'/>
+		<sftp:read doc:name="Read" doc:id="18d2c153-f589-4b47-bb23-717d4c8b2971" config-ref="SFTP_Config" path="employees.json"/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="ab82985d-caf2-42a4-ba37-a3ba0d286e43" variableName="employeeData"/>
+		<ee:transform doc:name="Transform Message" doc:id="9e700515-5047-4bdb-81ac-e617168069e1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:upsert doc:name="Upsert" doc:id="6f728bbe-7f34-47e2-b398-eb0e022104c3" externalIdFieldName="Employee_Id__c" config-ref="Salesforce_Config1" objectType="Employee__c"/>
+		<file:write doc:name="Write" doc:id="df702a49-9d95-42e5-a65f-bbccdfa12cd1" path="success/New/employee.json" config-ref="File_Config">
+			<file:content ><![CDATA[#[vars.employeeData]]]></file:content>
+		</file:write>
+		<ee:transform doc:name="Transform Message" doc:id="bc4c743a-ffb9-45d8-a98f-06e0cc35a1a3">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="5665ac8d-cc1e-4851-9c33-64e722a53840" message="#[payload]"/>
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow6" doc:id="84d8a906-ca9f-4bf2-8ce9-c0b64c40aa1d" >
+		<http:listener doc:name="Listener" doc:id="5caf91d6-8973-4097-99a5-2a242bb5562f" config-ref="HTTP_Listener_config" path="fetchEmployees"/>
+		<logger level="INFO" doc:name="Logger" doc:id="2f10a95c-94f4-4939-a7be-8b553c201756" message='#["Fetch SalesForce Record"]'/>
+		<salesforce:query doc:name="Query" doc:id="45f55e27-8cd7-45cb-8eb6-89c2cca3c49c" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT Employee_Id__c,
+       Employee_Name__c,
+       Email__c,
+       Phone__c,
+       Department__c,
+       Address__c,
+       Age__c
+FROM Employee__c WHERE Age__c > 40
+AND Age__c < 70]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<logger level="INFO" doc:name="Logger" doc:id="c466c23b-7aa8-485e-a745-c233bdc4a41b" message='#[write(payload,"application/json")]'/>
+		<ee:transform doc:name="Transform Message" doc:id="43bbf711-dbe2-4148-8781-92de8139225b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map {
+    employeeId: $.Employee_Id__c,
+    employeeName: $.Employee_Name__c,
+    email: $.Email__c,
+    phone: $.Phone__c,
+    age: $.Age__c as Number,
+    address: $.Address__c,
+    department: $.Department__c
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="8540da80-9a4e-48d2-807d-22205752bc2b" variableName="employeesData"/>
+		<foreach doc:name="For Each" doc:id="e0b061d2-b5fe-4f8e-b9f9-6d00a6dde61a" >
+			<db:insert doc:name="Insert" doc:id="730c84ea-5d09-4189-9c6e-686fb0bf489a" config-ref="Database_Config">
+				<db:sql ><![CDATA[INSERT INTO employee
+(
+    "employeeId",
+    "employeeName",
+    email,
+    phone,
+    age,
+    address,
+    department
+)
+VALUES
+(
+    :employeeId,
+    :employeeName,
+    :email,
+    :phone,
+    :age,
+    :address,
+    :department
+)]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{
+    employeeId: payload.employeeId,
+    employeeName: payload.employeeName,
+    email: payload.email,
+    phone: payload.phone,
+    age: payload.age,
+    address: payload.address,
+    department: payload.department
+}]]]></db:input-parameters>
+			</db:insert>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="3c28c507-b273-4db2-9b87-4bb6f072f5b7" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    message: "Employee inserted successfully",
+    totalRecords: sizeOf(vars.employeesData),
+    data: vars.employeesData
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="6fed987f-e49b-4afc-9308-bfae677181af" message="#[payload]"/>
+		<remove-variable doc:name="Remove Variable" doc:id="6bdd0b10-0360-43a6-b882-7cc22ff5d616" variableName="employeesData"/>
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow7" doc:id="4c7884db-ef36-4cac-948d-f989b2faf78a">
+		<http:listener doc:name="Listener" doc:id="3bab4508-4850-4d62-becc-bc268f3c6dd0" config-ref="HTTP_Listener_config" path="bulk" />
+		<logger level="INFO" doc:name="Logger" doc:id="ea6731e5-47be-406e-a848-14d9697053c4" message='#["Bulk Operation Started"]' />
+		<ee:transform doc:name="Transform Message" doc:id="57f4df80-e941-42b0-9b1e-59e900a31212">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/csv
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create-job-bulk-api-v2 doc:name="Create job bulk api v 2" doc:id="09e998e8-ff20-4319-b017-c9333e790056" config-ref="Salesforce_Config" operation="insert" lineEnding="CRLF" objectType="Contact" />
+		<ee:transform doc:name="Transform Message" doc:id="e9d51c03-6395-4480-8581-7822cb495cc1">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="2f6d490a-f16a-4c94-a62a-8c47a933102e" message="#[payload]" />
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow8" doc:id="d576cbfa-65ab-47bd-bd3d-3fb21f2bf7fa" >
+		<http:listener doc:name="Listener" doc:id="63be9c3e-9868-4357-9b8a-0e6f35a82a00" config-ref="HTTP_Listener_config" path="getState"/>
+		<logger level="INFO" doc:name="Logger" doc:id="6c32b91c-2d14-4f83-87e2-805364f7bb8e" message='#["Get The State"]'/>
+		<salesforce:get-job-state-bulk-api-v2 doc:name="Get job state bulk api v 2" doc:id="e73f1f0a-1dbe-40a5-8360-c68138d3777d" config-ref="Salesforce_Config" id="#[attributes.queryParams.Job_id]"/>
+		<ee:transform doc:name="Transform Message" doc:id="33bea8d8-c465-43c4-847c-f660e675c17d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="af2435b1-b462-4194-bb12-e0e9be54d4e4" message='#["Successfully Retrieved State"]'/>
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow9" doc:id="c11c058a-699c-4904-ad8b-357929313012" >
+		<scheduler doc:name="Scheduler" doc:id="fba6234b-24f4-4967-b5de-a96fe661683d">
+			<scheduling-strategy>
+				<fixed-frequency frequency="1" timeUnit="DAYS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="6c29096b-7fcd-419b-9be4-bc6ebaef28c0" >
+			<route >
+				<logger level="INFO" doc:name="Logger" doc:id="93707d0b-a216-43d4-b56c-bfca9f67e87a" message='#["Fetch Customer Details"]'/>
+				<db:select doc:name="get customer details" doc:id="c0f14f1f-e713-45f5-8207-8f7dab175039" config-ref="Database_Config">
+					<db:sql ><![CDATA[SELECT * FROM customer]]></db:sql>
+				</db:select>
+				<logger level="INFO" doc:name="Logger" doc:id="e9607574-8b71-4ed4-8037-138f21bac587" message="#[payload]"/>
+			</route>
+			<route >
+				<logger level="INFO" doc:name="Logger" doc:id="8e2de830-e661-498b-9f31-647000979301" message='#["Fetch Employee Details"]'/>
+				<db:select doc:name="get employee details" doc:id="b29379b6-8afe-4c73-ba82-460164419572" config-ref="Database_Config">
+					<db:sql><![CDATA[SELECT * FROM employee]]></db:sql>
+				</db:select>
+				<logger level="INFO" doc:name="Logger" doc:id="90d7cd98-a2f6-483c-b744-552c32f361c5" message="#[payload]"/>
+			</route>
+			<route >
+				<try doc:name="Try" doc:id="07f357a5-e180-4daa-bc6c-21569aea7144" >
+					<logger level="INFO" doc:name="Logger" doc:id="972c546e-bede-44e6-82c3-b0273e86b970" message='#["Fetch Employee custom object Details"]' />
+					<until-successful maxRetries="2" doc:name="Until Successful" doc:id="6ff42ed0-f6fa-407a-aa28-c8cc07dba562" millisBetweenRetries="3000">
+					<salesforce:query-all doc:name="get employee details in salesforce" doc:id="cb118550-fa46-45d1-bccb-5ac9ac879423" config-ref="Salesforce_Config">
+					<salesforce:salesforce-query><![CDATA[SELECT Employee_Id__c,
+       Employee_Name__c
+FROM Employee__c WHERE Age__c > 30
+AND Age__c < 70]]></salesforce:salesforce-query>
+				</salesforce:query-all>
+				</until-successful>
+					<ee:transform doc:name="Transform Message" doc:id="57516493-dcd9-426e-b0f3-09ef963e8715">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="bc5bd649-778a-4d46-95e4-d3d1ff4a3ed7" message="#[payload]" />
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="4e46f6cc-73e6-4a90-8239-f63f4a010b8b" type="ANY">
+				<set-payload value="#[error.description]" doc:name="Set Payload" doc:id="c158fc76-9ea2-4993-af84-aa82e3bd9e4c" />
+			</on-error-continue>
+					</error-handler>
+				</try>
+			</route>
+		</scatter-gather>
+		<ee:transform doc:name="Transform Message" doc:id="f80008ad-f95f-44b0-81de-16593461ead6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="4b889887-922a-42b2-a431-e92cefb47805" message="#[payload]"/>
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow10" doc:id="3c7b02e6-3f01-4870-8366-f8922fab89db" >
+		<http:listener doc:name="Listener" doc:id="4ac70f3a-7e15-4470-ad13-7a932a188491" config-ref="HTTP_Listener_config" path="insertOrders" outputMimeType="application/xml">
+			<redelivery-policy />
+		</http:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="94ed759e-fe12-40fa-b8d2-6543eb5c96d6" message='#["Insert Orders Record"]'/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="87623d7d-4cbb-4e9d-a27a-cb4873d81487" variableName="orders"/>
+		<ee:transform doc:name="insert input" doc:id="d9326a7e-b3a9-4811-b395-b10c7a61a0ab" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map (item) -> {
+    order_Id: item.order_Id,
+    customer_Name: item.customer_Name,
+    product_Name: item.product_Name,
+    quantity: item.quantity,
+    price: item.price,
+    order_Date: item.order_Date,
+    status: item.status
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<parallel-foreach doc:name="Parallel For Each" doc:id="bfab9c87-8d78-48ee-ae2c-13604f24b0a9" collection="#[payload]">
+			<snowflake:insert doc:name="Insert" doc:id="3d515591-8d07-4832-93fb-9ea6cd6d4409" config-ref="Snowflake_Config">
+			<snowflake:sql><![CDATA[INSERT INTO orders (
+    order_Id,
+    customer_Name,
+    product_Name,
+    quantity,
+    price,
+    order_Date,
+    status
+)
+VALUES
+(
+    :order_Id,
+    :customer_Name,
+    :product_Name,
+    :quantity,
+    :price,
+    :order_Date,
+    :status
+)]]></snowflake:sql>
+			<snowflake:input-parameters><![CDATA[#[{
+	order_Id: payload.order_Id,
+    customer_Name: payload.customer_Name,
+    product_Name: payload.product_Name,
+    quantity: payload.quantity,
+    price: payload.price,
+    order_Date: payload.order_Date,
+    status: payload.status
+}]]]></snowflake:input-parameters>
+		</snowflake:insert>
+		</parallel-foreach>
+		<ee:transform doc:name="Transform Message" doc:id="1334dbb5-fa76-4368-8e33-b57f608212a4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="c014184d-d49b-44e2-8546-9d68eab96278" message="#[payload]"/>
+		<remove-variable doc:name="Remove Variable" doc:id="09576f3b-4c9c-4eb3-b1be-2ef9d0ad43ec" variableName="orders" />
+		<ee:transform doc:name="Transform Message" doc:id="231e97b8-69b6-4ee5-ab51-fc371bbedda5">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	name: payload.payload.generatedKeys as String default "",
+	age: payload.payload.affectedRows default 0,
+	email: (vars.orders as String default "") ++ payload.payload as String,
+	"order": vars.orders
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<sub-flow name="mc-customeronboarding-system-apiSub_Flow" doc:id="dcdacd9f-db56-422d-990f-820e3468ea20">
+		<logger level="INFO" doc:name="Logger" doc:id="94452c88-3f3e-4d60-a5f1-9e51ce0aeaed" message='#["Write Json File"]' />
+		<file:write doc:name="Write" doc:id="2550ac57-7817-4f98-a8e0-60f463c9d76d" path="success/New/orders.json" />
+		<logger level="INFO" doc:name="Logger" doc:id="ca65ecb1-3f90-4dec-9749-67de55f7dca9" message="#[payload]" />
+	</sub-flow>
+	<flow name="mc-customeronboarding-system-apiFlow12" doc:id="715ab845-6582-46da-903f-6b1e6cccc8ba" >
+		<http:listener doc:name="Listener" doc:id="bf8e3f42-6416-42c8-8965-a138b089a736" config-ref="HTTP_Listener_config" path="batchProcess"/>
+
+    <logger level="INFO"
+        message='#["Starting Customer Batch Process"]'/>
+
+    <file:read
+        path="success/New/customers.json" config-ref="File_Config"/>
+
+    <ee:transform doc:name="JSON to Object">
+        <ee:message>
+            <ee:set-payload><![CDATA[
+%dw 2.0
+output application/java
+---
+payload
+]]></ee:set-payload>
+        </ee:message>
+    </ee:transform>
+
+    <batch:job jobName="CustomerBatchJob">
+
+        <batch:process-records>
+
+            <batch:step name="ValidateCustomer">
+
+                <choice>
+
+                    <when expression="#[isEmpty(payload.customerId)or isEmpty(payload.firstName)&#10;    or isEmpty(payload.email)]">
+
+                        <logger level="ERROR"
+                            message='#["Invalid Customer Record"]'/>
+
+                    </when>
+						<otherwise>
+
+                        <logger level="INFO"
+                            message='#["Valid Customer : " ++ payload.customerId]'/>
+
+                    </otherwise>
+
+                </choice>
+
+            </batch:step>
+
+            <batch:step name="InsertCustomer">
+					<db:insert doc:name="Insert" doc:id="a2bce389-2c81-443c-a51c-2cd3ea1c9166" config-ref="Database_Config">
+						<db:sql ><![CDATA[INSERT INTO customer
+(
+    "customerId",
+    "firstName",
+    "lastName",
+    email,
+    phone,
+    gender,
+    city,
+    state,
+    country
+)
+VALUES
+(
+    :customerId,
+    :firstName,
+    :lastName,
+    :email,
+    :phone,
+    :gender,
+    :city,
+    :state,
+    :country
+)]]></db:sql>
+						<db:input-parameters ><![CDATA[#[{
+        customerId : payload.customerId,
+        firstName  : payload.firstName,
+        lastName   : payload.lastName,
+        email      : payload.email,
+        phone      : payload.phone,
+        gender     : payload.gender,
+        city       : payload.city,
+        state      : payload.state,
+        country    : payload.country
+    }]]]></db:input-parameters>
+					</db:insert>
+
+            </batch:step>
+
+        </batch:process-records>
+
+         <batch:on-complete>
+
+            <logger level="INFO"
+                message='#["Total Records : " ++ payload.totalRecords&#10;                ++ " | Success : " ++ payload.loadedRecords&#10;                ++ " | Failed : " ++ payload.failedRecords]'/>
+
+        </batch:on-complete>
+
+    </batch:job>
+
+    <ee:transform doc:name="Response">
+        <ee:message>
+            <ee:set-payload><![CDATA[
+%dw 2.0
+output application/json
+---
+{
+    success: true,
+    timestamp: now(),
+    message: "Batch Job Triggered Successfully"
+}
+]]></ee:set-payload>
+        </ee:message>
+    </ee:transform>
+    
+
+	</flow>
+	<flow name="mc-customeronboarding-system-apiFlow11" doc:id="725475a4-e6fc-4600-853c-8d1a06e2118b" >
+		<scheduler doc:name="Scheduler" doc:id="87d38bc6-693f-45e4-ae62-03a7915e1925" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="10000" timeUnit="MINUTES" startDelay="1000000"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="d89657c6-fe74-47a7-92e6-7f3810423ef7" message='#["Scheduler Started to Read"]'/>
+		<file:read doc:name="Read" doc:id="eb8335c7-c5fb-4014-b980-5260315c8130" config-ref="File_Config" path="success/New/employee.csv"/>
+		<ee:transform doc:name="Transform Message" doc:id="208c67ae-67a1-45d5-bd61-7b6e50d1638c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="da74cb8a-f43b-485b-a63d-ee5b42287f81" message='#["Payload Before Batch = " ++ write(payload,"application/json")]'/>
+		<batch:job jobName="mc-customeronboarding-system-apiBatch_Job" doc:id="ab066cde-0b94-4a7c-bcd3-178d2ef91d09" blockSize="10000" maxFailedRecords="20" maxConcurrency="20">
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="0e1db9a8-00f8-4b79-b3d1-6272400129e6" acceptPolicy="ONLY_FAILURES">
+					<logger level="INFO" doc:name="Logger" doc:id="09adec26-884d-4be5-8e6f-6e007405e84e" message='#["Employee Record = " ++ write(payload,"application/json")]'/>
+					<set-variable value="#[payload]" doc:name="Set Variable" doc:id="12a34062-f3e9-4611-8c5c-897942e7a728" variableName="employee" />
+					<salesforce:upsert doc:name="Upsert" doc:id="5bf6f20b-b1cf-46b0-b37d-5f5c03203428" config-ref="Salesforce_Config" objectType="Employee__c" externalIdFieldName="Employee_Id__c">
+						<salesforce:records ><![CDATA[#[[{
+							    Employee_Id__c   : payload.Employee_Id__c,
+							    Employee_Name__c : payload.Employee_Name__c,
+							    Email__c         : payload.Email__c,
+							    Phone__c         : payload.Phone__c,
+							    Department__c    : payload.Department__c,
+							    Age__c           : payload.Age__c,
+							    Address__c       : payload.Address__c
+							}]]]]></salesforce:records>
+												</salesforce:upsert>
+					<logger level="INFO" doc:name="Logger" doc:id="ea32d2a9-7607-4ffb-ba99-5aa6c7767ed5" message="#[vars.employee]"/>
+											</batch:step>
+											<batch:step name="Batch_Step1" doc:id="f74103a6-ebcc-498a-8c05-c53619c17b29" acceptPolicy="ONLY_FAILURES">
+												<logger level="INFO" doc:name="Logger" doc:id="21c84748-f0ae-4ac5-82ff-0679677fc4e8" message='#["Snowflake Payload = " ++ write(payload,"application/json")]'/>
+												<snowflake:insert doc:name="Insert" doc:id="dc0ae0dd-0cc7-43fe-9142-a73692b2c2a5" config-ref="Snowflake_Config">
+													<snowflake:sql ><![CDATA[INSERT INTO employee(
+		employee_Id,
+		employee_Name,
+		email,
+		phone,
+		department,
+		age,
+		address
+)VALUES
+(
+	:employee_Id,
+	:employee_Name,
+	:email,
+	:phone,
+	:department,
+	:age,
+	:address
+							)]]></snowflake:sql>
+													<snowflake:input-parameters ><![CDATA[#[{
+	employee_Id   : vars.employee.Employee_Id__c,
+    employee_Name : vars.employee.Employee_Name__c,
+    email         : vars.employee.Email__c,
+    phone         : vars.employee.Phone__c,
+    department    : vars.employee.Department__c,
+    age           : vars.employee.Age__c,
+    address       : vars.employee.Address__c
+}]]]></snowflake:input-parameters>
+					</snowflake:insert>
+					<logger level="INFO" doc:name="Logger" doc:id="ff086d1b-984e-4a57-8e6b-7bf20c5131e8" message="#[vars.employee]"/>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<ee:transform doc:name="Transform Message" doc:id="19a2e397-847a-4e76-8b96-fcb68d6d0d37" >
+					<ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: true,
+	totalRecords: payload.totalRecords,
+	successfulRecords: payload.loadedRecords,
+	failedRecords: payload.failedRecords,
+	TimeStamp: now(),
+	message: "Employees processed successfully"
+}
+				]]></ee:set-payload>
+				        </ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="92256be8-a48d-4d71-9f40-23e627bb0797" message="#[write(payload,'application/json')]"/>
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+	
+    
+</mule>
